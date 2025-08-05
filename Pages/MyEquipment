@@ -1,0 +1,187 @@
+import React, { useState, useEffect } from "react";
+import { BorrowRequest } from "@/entities/BorrowRequest";
+import { Equipment } from "@/entities/Equipment";
+import { User } from "@/entities/User";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { motion, AnimatePresence } from "framer-motion";
+
+import LoanCard from "../components/loans/LoanCard";
+import ReturnDialog from "../components/loans/ReturnDialog";
+
+export default function MyEquipmentPage() {
+  const [requests, setRequests] = useState([]);
+  const [equipment, setEquipment] = useState([]);
+  const [user, setUser] = useState(null);
+  const [selectedLoan, setSelectedLoan] = useState(null);
+  const [selectedEquipment, setSelectedEquipment] = useState(null);
+  const [showReturnDialog, setShowReturnDialog] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    setIsLoading(true);
+    try {
+      const userData = await User.me();
+      setUser(userData);
+      
+      const [requestsData, equipmentData] = await Promise.all([
+        BorrowRequest.filter({ borrower_email: userData.email }, '-created_date'),
+        Equipment.list()
+      ]);
+      
+      setRequests(requestsData);
+      setEquipment(equipmentData);
+    } catch (error) {
+      console.error("Error loading equipment:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleReturnRequest = (loan, equipmentItem) => {
+    setSelectedLoan(loan);
+    setSelectedEquipment(equipmentItem);
+    setShowReturnDialog(true);
+  };
+
+  const handleSubmitReturn = async (loanId, returnData) => {
+    try {
+      await BorrowRequest.update(loanId, returnData);
+      
+      // Update equipment status back to available
+      const loan = requests.find(l => l.id === loanId);
+      if (loan) {
+        await Equipment.update(loan.equipment_id, {
+          status: 'available',
+          condition: returnData.return_condition
+        });
+      }
+      
+      setShowReturnDialog(false);
+      setSelectedLoan(null);
+      setSelectedEquipment(null);
+      await loadData();
+    } catch (error) {
+      console.error("Error processing return:", error);
+    }
+  };
+
+  const getEquipmentById = (equipmentId) => {
+    return equipment.find(eq => eq.id === equipmentId);
+  };
+
+  const filterRequestsByStatus = (status) => {
+    switch (status) {
+      case 'active':
+        return requests.filter(req => ['approved', 'active'].includes(req.status));
+      case 'pending':
+        return requests.filter(req => req.status === 'pending');
+      case 'history':
+        return requests.filter(req => ['returned', 'cancelled'].includes(req.status));
+      default:
+        return requests;
+    }
+  };
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-slate-900 mb-4">Please sign in to view your equipment</h1>
+          <button 
+            onClick={() => User.login()}
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Sign In
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
+      <div className="max-w-6xl mx-auto">
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-slate-900 to-blue-700 bg-clip-text text-transparent mb-3">
+            My Equipment
+          </h1>
+          <p className="text-slate-600 text-lg">
+            Track your borrowed equipment and manage returns
+          </p>
+        </div>
+
+        <Tabs defaultValue="active" className="space-y-6">
+          <TabsList className="bg-white/80 backdrop-blur-sm p-1 rounded-xl border border-slate-200/60">
+            <TabsTrigger value="active" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">
+              Active Equipment ({filterRequestsByStatus('active').length})
+            </TabsTrigger>
+            <TabsTrigger value="pending" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">
+              Pending ({filterRequestsByStatus('pending').length})
+            </TabsTrigger>
+            <TabsTrigger value="history" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">
+              History ({filterRequestsByStatus('history').length})
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="active" className="space-y-6">
+            {isLoading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {Array(3).fill(0).map((_, i) => (
+                  <div key={i} className="bg-white rounded-2xl p-6 animate-pulse">
+                    <div className="h-6 bg-slate-200 rounded mb-3"></div>
+                    <div className="h-4 bg-slate-200 rounded mb-2"></div>
+                    <div className="h-20 bg-slate-200 rounded mb-4"></div>
+                    <div className="h-10 bg-slate-200 rounded"></div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <AnimatePresence>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {filterRequestsByStatus('active').map((request, index) => (
+                    <motion.div
+                      key={request.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.1 }}
+                    >
+                      <LoanCard
+                        loan={request}
+                        equipment={getEquipmentById(request.equipment_id)}
+                        onReturn={handleReturnRequest}
+                      />
+                    </motion.div>
+                  ))}
+                </div>
+              </AnimatePresence>
+            )}
+            
+            {filterRequestsByStatus('active').length === 0 && !isLoading && (
+              <div className="text-center py-12">
+                <h3 className="text-xl font-semibold text-slate-900 mb-2">No active equipment</h3>
+                <p className="text-slate-600">You don't have any equipment currently borrowed</p>
+              </div>
+            )}
+          </TabsContent>
+
+          {/* ... keep existing code (other tabs) */}
+        </Tabs>
+
+        <ReturnDialog
+          loan={selectedLoan}
+          equipment={selectedEquipment}
+          isOpen={showReturnDialog}
+          onClose={() => {
+            setShowReturnDialog(false);
+            setSelectedLoan(null);
+            setSelectedEquipment(null);
+          }}
+          onSubmit={handleSubmitReturn}
+        />
+      </div>
+    </div>
+  );
