@@ -1,0 +1,114 @@
+import React, { useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+export default function ReturnDialog({ loan, equipment, isOpen, onClose, onSubmit }) {
+  const [formData, setFormData] = useState({
+    return_condition: "good",
+    return_notes: ""
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    
+    try {
+      await onSubmit(loan.id, {
+        ...formData,
+        actual_return_date: new Date().toISOString().split('T')[0],
+        status: "returned"
+      });
+      setFormData({ return_condition: "good", return_notes: "" });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (!loan || !equipment) return null;
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-md bg-white">
+        <DialogHeader>
+          <DialogTitle className="text-xl font-bold text-slate-900">
+            Return Equipment
+          </DialogTitle>
+          <div className="text-sm text-slate-600">
+            {equipment.name} - {equipment.model}
+          </div>
+        </DialogHeader>
+        
+        <form onSubmit={handleSubmit} className="space-y-6 mt-4">
+          <div className="space-y-2">
+            <Label htmlFor="condition" className="text-sm font-medium text-slate-700">
+              Equipment condition *
+            </Label>
+            <Select
+              value={formData.return_condition}
+              onValueChange={(value) => setFormData(prev => ({ ...prev, return_condition: value }))}
+            >
+              <SelectTrigger className="border-slate-200 focus:border-blue-400 focus:ring-blue-400">
+                <SelectValue placeholder="Select condition" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="excellent">Excellent - Like new</SelectItem>
+                <SelectItem value="good">Good - Normal wear</SelectItem>
+                <SelectItem value="fair">Fair - Some wear but functional</SelectItem>
+                <SelectItem value="damaged">Damaged - Needs repair</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="notes" className="text-sm font-medium text-slate-700">
+              Return notes (optional)
+            </Label>
+            <Textarea
+              id="notes"
+              value={formData.return_notes}
+              onChange={(e) => setFormData(prev => ({ ...prev, return_notes: e.target.value }))}
+              placeholder="Any issues, damage, or notes about the equipment..."
+              className="min-h-20 border-slate-200 focus:border-blue-400 focus:ring-blue-400"
+            />
+          </div>
+
+          <div className="bg-green-50 p-4 rounded-lg">
+            <h4 className="font-medium text-green-900 mb-2">Return Process</h4>
+            <ul className="text-sm text-green-700 space-y-1">
+              <li>• Return the equipment to: {equipment.location}</li>
+              <li>• Make sure all accessories are included</li>
+              <li>• Report any damage or issues</li>
+            </ul>
+          </div>
+          
+          <div className="flex gap-3 pt-4">
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={onClose}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+            <Button 
+              type="submit" 
+              disabled={isSubmitting}
+              className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+            >
+              {isSubmitting ? "Processing..." : "Confirm Return"}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
