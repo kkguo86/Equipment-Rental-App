@@ -1,0 +1,106 @@
+import React from "react";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Monitor, Laptop, Tablet, Camera, Headphones, Cable, Package } from "lucide-react";
+
+const categoryIcons = {
+  monitors: Monitor,
+  laptops: Laptop,
+  tablets: Tablet,
+  cameras: Camera,
+  audio: Headphones,
+  accessories: Cable,
+  other: Package
+};
+
+const statusColors = {
+  available: "bg-emerald-100 text-emerald-800 border-emerald-200",
+  borrowed: "bg-amber-100 text-amber-800 border-amber-200",
+  maintenance: "bg-red-100 text-red-800 border-red-200",
+  retired: "bg-slate-100 text-slate-800 border-slate-200"
+};
+
+const conditionColors = {
+  excellent: "bg-green-100 text-green-800",
+  good: "bg-blue-100 text-blue-800",
+  fair: "bg-yellow-100 text-yellow-800",
+  needs_repair: "bg-red-100 text-red-800"
+};
+
+export default function EquipmentCard({ equipment, onSelectionChange, isSelected }) {
+  const IconComponent = categoryIcons[equipment.category] || Package;
+
+  const handleCardClick = () => {
+    if (equipment.status === 'available') {
+      onSelectionChange(equipment.id, !isSelected);
+    }
+  };
+
+  return (
+    <Card 
+      onClick={handleCardClick}
+      className={`group transition-all duration-300 bg-white/80 backdrop-blur-sm border-slate-200/60 relative overflow-hidden
+        ${isSelected ? 'shadow-xl shadow-blue-200/50 border-blue-400' : 'hover:shadow-lg hover:shadow-blue-100/50 hover:-translate-y-1'}
+        ${equipment.status === 'available' ? 'cursor-pointer' : 'opacity-60 cursor-not-allowed'}`}
+    >
+      {equipment.status === 'available' && (
+        <div className="absolute top-3 right-3 z-10">
+          <Checkbox
+            checked={isSelected}
+            onCheckedChange={(checked) => onSelectionChange(equipment.id, checked)}
+            onClick={(e) => e.stopPropagation()}
+            className="w-5 h-5"
+          />
+        </div>
+      )}
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-gradient-to-r from-blue-100 to-indigo-100 rounded-xl flex items-center justify-center">
+              <IconComponent className="w-6 h-6 text-blue-600" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-slate-900 group-hover:text-blue-700 transition-colors">
+                {equipment.name}
+              </h3>
+              <p className="text-sm text-slate-500">{equipment.equipment_code}</p>
+            </div>
+          </div>
+        </div>
+      </CardHeader>
+      
+      <CardContent className="space-y-4">
+        {equipment.image_url && (
+          <div className="aspect-video bg-slate-100 rounded-lg overflow-hidden">
+            <img 
+              src={equipment.image_url} 
+              alt={equipment.name}
+              className="w-full h-full object-cover"
+            />
+          </div>
+        )}
+        
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-slate-600">Status:</span>
+          <Badge className={`${statusColors[equipment.status]} border font-medium`}>
+            {equipment.status}
+          </Badge>
+        </div>
+
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-slate-600">Condition:</span>
+          <Badge variant="secondary" className={conditionColors[equipment.condition]}>
+            {equipment.condition}
+          </Badge>
+        </div>
+
+        {equipment.notes && (
+          <div className="text-sm text-slate-600 bg-slate-50 p-3 rounded-lg">
+            {equipment.notes}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
