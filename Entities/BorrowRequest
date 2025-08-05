@@ -1,0 +1,70 @@
+{
+  "name": "BorrowRequest",
+  "type": "object",
+  "properties": {
+    "equipment_id": {
+      "type": "string",
+      "description": "ID of borrowed equipment"
+    },
+    "borrower_email": {
+      "type": "string",
+      "description": "Email of person borrowing"
+    },
+    "borrower_name": {
+      "type": "string",
+      "description": "Name of borrower"
+    },
+    "expected_return_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Expected return date"
+    },
+    "actual_return_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Actual return date"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "approved",
+        "active",
+        "returned",
+        "overdue",
+        "cancelled"
+      ],
+      "default": "pending",
+      "description": "Request status"
+    },
+    "approved_by": {
+      "type": "string",
+      "description": "Email of approver"
+    },
+    "approval_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date of approval"
+    },
+    "return_condition": {
+      "type": "string",
+      "enum": [
+        "excellent",
+        "good",
+        "fair",
+        "damaged"
+      ],
+      "description": "Condition when returned"
+    },
+    "return_notes": {
+      "type": "string",
+      "description": "Notes about return"
+    }
+  },
+  "required": [
+    "equipment_id",
+    "borrower_email",
+    "borrower_name",
+    "expected_return_date"
+  ]
+}
