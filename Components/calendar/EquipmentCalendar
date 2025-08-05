@@ -1,0 +1,237 @@
+import React, { useState, useEffect } from "react";
+import { Equipment } from "@/entities/Equipment";
+import { BorrowRequest } from "@/entities/BorrowRequest";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ChevronLeft, ChevronRight, Calendar, Package } from "lucide-react";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isToday, isSameDay, addMonths, subMonths } from "date-fns";
+
+export default function EquipmentCalendar() {
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [equipment, setEquipment] = useState([]);
+  const [requests, setRequests] = useState([]);
+  const [selectedEquipment, setSelectedEquipment] = useState("all");
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    setIsLoading(true);
+    try {
+      const [equipmentData, requestsData] = await Promise.all([
+        Equipment.list(),
+        BorrowRequest.list()
+      ]);
+      setEquipment(equipmentData);
+      setRequests(requestsData);
+    } catch (error) {
+      console.error("Error loading calendar data:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const monthStart = startOfMonth(currentDate);
+  const monthEnd = endOfMonth(currentDate);
+  const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
+
+  const getEquipmentAvailability = (date, equipmentId = null) => {
+    const dateStr = format(date, 'yyyy-MM-dd');
+    const targetEquipment = equipmentId ? [equipment.find(e => e.id === equipmentId)] : equipment;
+    
+    return targetEquipment.map(eq => {
+      if (!eq) return null;
+      
+      // Check if equipment is borrowed on this date
+      const activeBorrow = requests.find(req => 
+        req.equipment_id === eq.id && 
+        req.status === 'active' &&
+        dateStr >= req.approval_date &&
+        dateStr <= req.expected_return_date
+      );
+      
+      return {
+        ...eq,
+        isAvailable: !activeBorrow && eq.status === 'available',
+        borrower: activeBorrow ? activeBorrow.borrower_name : null
+      };
+    }).filter(Boolean);
+  };
+
+  const getAvailableCount = (date) => {
+    const availability = getEquipmentAvailability(date);
+    return availability.filter(eq => eq.isAvailable).length;
+  };
+
+  const previousMonth = () => {
+    setCurrentDate(subMonths(currentDate, 1));
+  };
+
+  const nextMonth = () => {
+    setCurrentDate(addMonths(currentDate, 1));
+  };
+
+  const filteredEquipment = selectedEquipment === "all" 
+    ? equipment 
+    : equipment.filter(eq => eq.id === selectedEquipment);
+
+  return (
+    <div className="space-y-6">
+      {/* Calendar Header */}
+      <Card className="bg-white/80 backdrop-blur-sm border-slate-200/60">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={previousMonth}
+                className="h-8 w-8"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <CardTitle className="text-xl font-bold text-slate-900">
+                {format(currentDate, 'MMMM yyyy')}
+              </CardTitle>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={nextMonth}
+                className="h-8 w-8"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+            
+            <div className="flex items-center gap-3">
+              <Select value={selectedEquipment} onValueChange={setSelectedEquipment}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Filter by equipment" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Equipment</SelectItem>
+                  {equipment.map((eq) => (
+                    <SelectItem key={eq.id} value={eq.id}>
+                      {eq.name} ({eq.equipment_code})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardHeader>
+      </Card>
+
+      {/* Calendar Grid */}
+      <Card className="bg-white/80 backdrop-blur-sm border-slate-200/60">
+        <CardContent className="p-6">
+          {isLoading ? (
+            <div className="grid grid-cols-7 gap-2">
+              {Array(35).fill(0).map((_, i) => (
+                <div key={i} className="h-24 bg-slate-100 rounded-lg animate-pulse"></div>
+              ))}
+            </div>
+          ) : (
+            <>
+              {/* Days of week header */}
+              <div className="grid grid-cols-7 gap-2 mb-4">
+                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                  <div key={day} className="text-center text-sm font-medium text-slate-600 py-2">
+                    {day}
+                  </div>
+                ))}
+              </div>
+
+              {/* Calendar days */}
+              <div className="grid grid-cols-7 gap-2">
+                {daysInMonth.map(date => {
+                  const availability = selectedEquipment === "all" 
+                    ? getAvailableCount(date)
+                    : getEquipmentAvailability(date, selectedEquipment);
+                  
+                  const isCurrentDay = isToday(date);
+                  const availableCount = selectedEquipment === "all" 
+                    ? availability 
+                    : availability.filter(eq => eq.isAvailable).length;
+                  
+                  return (
+                    <div
+                      key={format(date, 'yyyy-MM-dd')}
+                      className={`min-h-24 p-2 rounded-lg border transition-colors ${
+                        isCurrentDay 
+                          ? 'bg-blue-50 border-blue-200' 
+                          : 'bg-white border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="text-sm font-medium text-slate-900 mb-1">
+                        {format(date, 'd')}
+                      </div>
+                      
+                      {selectedEquipment === "all" ? (
+                        <div className="space-y-1">
+                          <Badge 
+                            variant="secondary" 
+                            className="text-xs bg-green-100 text-green-800"
+                          >
+                            {availableCount} available
+                          </Badge>
+                          <Badge 
+                            variant="secondary" 
+                            className="text-xs bg-slate-100 text-slate-600"
+                          >
+                            {equipment.length - availableCount} borrowed
+                          </Badge>
+                        </div>
+                      ) : (
+                        <div className="space-y-1">
+                          {availability.map(eq => (
+                            <div key={eq.id} className="text-xs">
+                              <Badge 
+                                variant="secondary" 
+                                className={`text-xs ${
+                                  eq.isAvailable 
+                                    ? 'bg-green-100 text-green-800' 
+                                    : 'bg-red-100 text-red-800'
+                                }`}
+                              >
+                                {eq.isAvailable ? 'Available' : `Borrowed by ${eq.borrower}`}
+                              </Badge>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Legend */}
+      <Card className="bg-white/80 backdrop-blur-sm border-slate-200/60">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-center gap-6 text-sm">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-green-100 border border-green-200 rounded"></div>
+              <span className="text-slate-700">Available</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-red-100 border border-red-200 rounded"></div>
+              <span className="text-slate-700">Borrowed</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-blue-100 border border-blue-200 rounded"></div>
+              <span className="text-slate-700">Today</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
