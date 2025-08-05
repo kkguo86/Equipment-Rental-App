@@ -1,0 +1,23 @@
+import React from "react";
+import { Calendar } from "lucide-react";
+import EquipmentCalendar from "../components/calendar/EquipmentCalendar";
+
+export default function CalendarViewPage() {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
+      <div className="max-w-7xl mx-auto">
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-slate-900 to-blue-700 bg-clip-text text-transparent mb-3 flex items-center gap-3">
+            <Calendar className="w-10 h-10 text-blue-600" />
+            Equipment Calendar
+          </h1>
+          <p className="text-slate-600 text-lg">
+            View equipment availability across dates and plan your borrowing
+          </p>
+        </div>
+
+        <EquipmentCalendar />
+      </div>
+    </div>
+  );
+}
