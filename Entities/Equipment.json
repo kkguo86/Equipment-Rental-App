@@ -1,12 +1,79 @@
-{
-  "name": "Office Laptop",
-  "equipment_code": "LPT1001",
-  "category": "laptops",
-  "model": "Dell XPS 15",
-  "serial_number": "SN123456",
-  "condition": "good",
-  "status": "available",
-  "notes": "Assigned to marketing team",
-  "image_url": "http://example.com/images/laptop1.jpg"
-}
-
+[
+  {
+    "name": "Office Laptop",
+    "equipment_code": "LPT1001",
+    "category": "laptops",
+    "model": "Dell XPS 15",
+    "serial_number": "SN123456",
+    "condition": "good",
+    "status": "available",
+    "notes": "Assigned to marketing team",
+    "image_url": "http://example.com/images/laptop1.jpg"
+  },
+  {
+    "name": "Conference Room Monitor",
+    "equipment_code": "MON202",
+    "category": "monitors",
+    "model": "Samsung SmartView",
+    "serial_number": "SN654321",
+    "condition": "excellent",
+    "status": "available",
+    "notes": "4K resolution, 55 inch",
+    "image_url": "http://example.com/images/monitor1.jpg"
+  },
+  {
+    "name": "Digital Camera",
+    "equipment_code": "CAM309",
+    "category": "cameras",
+    "model": "Canon EOS 90D",
+    "serial_number": "SN789101",
+    "condition": "fair",
+    "status": "borrowed",
+    "notes": "Used for event photography",
+    "image_url": "http://example.com/images/camera1.jpg"
+  },
+  {
+    "name": "Wireless Headphones",
+    "equipment_code": "AUD405",
+    "category": "audio",
+    "model": "Sony WH-1000XM4",
+    "serial_number": "SN111213",
+    "condition": "excellent",
+    "status": "available",
+    "notes": "Noise cancelling",
+    "image_url": "http://example.com/images/headphones1.jpg"
+  },
+  {
+    "name": "Tablet Device",
+    "equipment_code": "TAB507",
+    "category": "tablets",
+    "model": "iPad Pro 2021",
+    "serial_number": "SN141516",
+    "condition": "good",
+    "status": "maintenance",
+    "notes": "Screen protector needs replacement",
+    "image_url": "http://example.com/images/tablet1.jpg"
+  },
+  {
+    "name": "USB-C Hub",
+    "equipment_code": "ACC601",
+    "category": "accessories",
+    "model": "Anker 7-in-1",
+    "serial_number": "SN171819",
+    "condition": "good",
+    "status": "available",
+    "notes": "Compatible with MacBook",
+    "image_url": "http://example.com/images/hub1.jpg"
+  },
+  {
+    "name": "Miscellaneous Cable",
+    "equipment_code": "OTH700",
+    "category": "other",
+    "model": "HDMI 2.0 Cable",
+    "serial_number": "SN202122",
+    "condition": "needs_repair",
+    "status": "retired",
+    "notes": "Frayed cable, no longer in use",
+    "image_url": "http://example.com/images/cable1.jpg"
+  }
+]
