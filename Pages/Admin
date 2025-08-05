@@ -1,0 +1,318 @@
+import React, { useState, useEffect } from "react";
+import { Equipment } from "@/entities/Equipment";
+import { BorrowRequest } from "@/entities/BorrowRequest";
+import { User } from "@/entities/User";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Check, X, Plus, Package, Users, Clock } from "lucide-react";
+
+export default function AdminPage() {
+  const [user, setUser] = useState(null);
+  const [equipment, setEquipment] = useState([]);
+  const [requests, setRequests] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    setIsLoading(true);
+    try {
+      const userData = await User.me();
+      if (userData.role !== 'admin') {
+        throw new Error('Access denied');
+      }
+      setUser(userData);
+      
+      const [equipmentData, requestsData] = await Promise.all([
+        Equipment.list(),
+        BorrowRequest.list('-created_date')
+      ]);
+      
+      setEquipment(equipmentData);
+      setRequests(requestsData);
+    } catch (error) {
+      console.error("Error loading admin data:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleApproveRequest = async (requestId) => {
+    try {
+      const request = requests.find(r => r.id === requestId);
+      await BorrowRequest.update(requestId, {
+        status: 'active',
+        approved_by: user.email,
+        approval_date: new Date().toISOString().split('T')[0]
+      });
+      
+      // Update equipment status
+      await Equipment.update(request.equipment_id, { status: 'borrowed' });
+      
+      await loadData();
+    } catch (error) {
+      console.error("Error approving request:", error);
+    }
+  };
+
+  const handleRejectRequest = async (requestId) => {
+    try {
+      await BorrowRequest.update(requestId, {
+        status: 'cancelled'
+      });
+      await loadData();
+    } catch (error) {
+      console.error("Error rejecting request:", error);
+    }
+  };
+
+  if (!user || user.role !== 'admin') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-slate-900 mb-4">Access Denied</h1>
+          <p className="text-slate-600">You need administrator privileges to access this page.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const pendingRequests = requests.filter(r => r.status === 'pending');
+  const activeRequests = requests.filter(r => r.status === 'active');
+  const availableEquipment = equipment.filter(e => e.status === 'available');
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
+      <div className="max-w-7xl mx-auto">
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-slate-900 to-blue-700 bg-clip-text text-transparent mb-3">
+            Admin Panel
+          </h1>
+          <p className="text-slate-600 text-lg">
+            Manage equipment and approve borrowing requests
+          </p>
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <Card className="bg-white/80 backdrop-blur-sm border-slate-200/60">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
+                <Package className="w-4 h-4" />
+                Total Equipment
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-slate-900">{equipment.length}</div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white/80 backdrop-blur-sm border-slate-200/60">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
+                <Check className="w-4 h-4" />
+                Available
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600">{availableEquipment.length}</div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white/80 backdrop-blur-sm border-slate-200/60">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
+                <Users className="w-4 h-4" />
+                Active Equipment
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-blue-600">{activeRequests.length}</div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white/80 backdrop-blur-sm border-slate-200/60">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
+                <Clock className="w-4 h-4" />
+                Pending Requests
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-amber-600">{pendingRequests.length}</div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <Tabs defaultValue="requests" className="space-y-6">
+          <TabsList className="bg-white/80 backdrop-blur-sm p-1 rounded-xl border border-slate-200/60">
+            <TabsTrigger value="requests" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">
+              Pending Requests ({pendingRequests.length})
+            </TabsTrigger>
+            <TabsTrigger value="equipment" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">
+              Equipment Management
+            </TabsTrigger>
+            <TabsTrigger value="active" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">
+              Active Equipment ({activeRequests.length})
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="requests" className="space-y-4">
+            {pendingRequests.length === 0 ? (
+              <div className="text-center py-12">
+                <h3 className="text-xl font-semibold text-slate-900 mb-2">No pending requests</h3>
+                <p className="text-slate-600">All requests have been processed</p>
+              </div>
+            ) : (
+              pendingRequests.map((request) => {
+                const equipmentItem = equipment.find(e => e.id === request.equipment_id);
+                return (
+                  <Card key={request.id} className="bg-white/80 backdrop-blur-sm border-slate-200/60">
+                    <CardHeader>
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <CardTitle className="text-lg font-semibold text-slate-900">
+                            {equipmentItem?.name} ({equipmentItem?.equipment_code})
+                          </CardTitle>
+                          <p className="text-slate-600 mt-1">
+                            Requested by {request.borrower_name} ({request.borrower_email})
+                          </p>
+                        </div>
+                        <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">
+                          Pending
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="text-slate-600">Expected return:</span>
+                          <p className="font-medium text-slate-900 mt-1">
+                            {new Date(request.expected_return_date).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex gap-3">
+                        <Button 
+                          onClick={() => handleApproveRequest(request.id)}
+                          className="bg-green-600 hover:bg-green-700 text-white"
+                        >
+                          <Check className="w-4 h-4 mr-2" />
+                          Approve
+                        </Button>
+                        <Button 
+                          onClick={() => handleRejectRequest(request.id)}
+                          variant="outline"
+                          className="border-red-200 text-red-600 hover:bg-red-50"
+                        >
+                          <X className="w-4 h-4 mr-2" />
+                          Reject
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })
+            )}
+          </TabsContent>
+
+          <TabsContent value="equipment" className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-semibold text-slate-900">Equipment Management</h2>
+              <Button className="bg-blue-600 hover:bg-blue-700">
+                <Plus className="w-4 h-4 mr-2" />
+                Add Equipment
+              </Button>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {equipment.map((item) => (
+                <Card key={item.id} className="bg-white/80 backdrop-blur-sm border-slate-200/60">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <CardTitle className="text-base font-semibold text-slate-900">
+                          {item.name}
+                        </CardTitle>
+                        <p className="text-sm text-slate-600">{item.equipment_code}</p>
+                      </div>
+                      <Badge className={item.status === 'available' ? 
+                        'bg-green-100 text-green-800 border-green-200' : 
+                        'bg-amber-100 text-amber-800 border-amber-200'
+                      }>
+                        {item.status}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="text-sm">
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">Model:</span>
+                        <span className="font-medium">{item.model}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">Condition:</span>
+                        <span className="font-medium">{item.condition}</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="active" className="space-y-4">
+            {activeRequests.length === 0 ? (
+              <div className="text-center py-12">
+                <h3 className="text-xl font-semibold text-slate-900 mb-2">No active equipment</h3>
+                <p className="text-slate-600">No equipment is currently borrowed</p>
+              </div>
+            ) : (
+              activeRequests.map((loan) => {
+                const equipmentItem = equipment.find(e => e.id === loan.equipment_id);
+                return (
+                  <Card key={loan.id} className="bg-white/80 backdrop-blur-sm border-slate-200/60">
+                    <CardHeader>
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <CardTitle className="text-lg font-semibold text-slate-900">
+                            {equipmentItem?.name} ({equipmentItem?.equipment_code})
+                          </CardTitle>
+                          <p className="text-slate-600 mt-1">
+                            Borrowed by {loan.borrower_name} ({loan.borrower_email})
+                          </p>
+                        </div>
+                        <Badge className="bg-blue-100 text-blue-800 border-blue-200">
+                          Active
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                        <div>
+                          <span className="text-slate-600">Expected return:</span>
+                          <p className="font-medium text-slate-900 mt-1">
+                            {new Date(loan.expected_return_date).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="text-slate-600">Approved by:</span>
+                          <p className="font-medium text-slate-900 mt-1">{loan.approved_by}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })
+            )}
+          </TabsContent>
+        </Tabs>
+      </div>
+    </div>
+  );
+}
