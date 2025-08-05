@@ -1,0 +1,71 @@
+{
+  "name": "Equipment",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Equipment name"
+    },
+    "equipment_code": {
+      "type": "string",
+      "description": "Unique internal equipment code"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "monitors",
+        "laptops",
+        "tablets",
+        "cameras",
+        "audio",
+        "accessories",
+        "other"
+      ],
+      "description": "Equipment category"
+    },
+    "model": {
+      "type": "string",
+      "description": "Equipment model"
+    },
+    "serial_number": {
+      "type": "string",
+      "description": "Unique serial number"
+    },
+    "condition": {
+      "type": "string",
+      "enum": [
+        "excellent",
+        "good",
+        "fair",
+        "needs_repair"
+      ],
+      "default": "good",
+      "description": "Current condition"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "available",
+        "borrowed",
+        "maintenance",
+        "retired"
+      ],
+      "default": "available",
+      "description": "Current status"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Additional notes"
+    },
+    "image_url": {
+      "type": "string",
+      "description": "Equipment image"
+    }
+  },
+  "required": [
+    "name",
+    "equipment_code",
+    "category",
+    "serial_number"
+  ]
+}
