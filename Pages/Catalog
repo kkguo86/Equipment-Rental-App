@@ -1,0 +1,293 @@
+import React, { useState, useEffect } from "react";
+import { Equipment } from "@/entities/Equipment";
+import { BorrowRequest } from "@/entities/BorrowRequest";
+import { User } from "@/entities/User";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Search, Filter, HandPlatter } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+
+import EquipmentCard from "../components/equipment/EquipmentCard";
+import BorrowDialog from "../components/equipment/BorrowDialog";
+
+export default function CatalogPage() {
+  const [equipment, setEquipment] = useState([]);
+  const [filteredEquipment, setFilteredEquipment] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [selectedEquipmentIds, setSelectedEquipmentIds] = useState(new Set());
+  const [showBorrowDialog, setShowBorrowDialog] = useState(false);
+  const [user, setUser] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  useEffect(() => {
+    filterEquipment();
+  }, [equipment, searchTerm, categoryFilter, statusFilter]);
+
+  const loadData = async () => {
+    setIsLoading(true);
+    try {
+      const [equipmentData, userData] = await Promise.all([
+        Equipment.list(),
+        User.me().catch(() => null)
+      ]);
+      setEquipment(equipmentData);
+      setUser(userData);
+    } catch (error) {
+      console.error("Error loading data:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const filterEquipment = () => {
+    let filtered = equipment;
+
+    if (searchTerm) {
+      filtered = filtered.filter(item =>
+        item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.model.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.serial_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.equipment_code.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    if (categoryFilter !== "all") {
+      filtered = filtered.filter(item => item.category === categoryFilter);
+    }
+
+    if (statusFilter !== "all") {
+      filtered = filtered.filter(item => item.status === statusFilter);
+    }
+
+    setFilteredEquipment(filtered);
+  };
+
+  const handleSelectionChange = (id, isSelected) => {
+    setSelectedEquipmentIds(prev => {
+      const newSet = new Set(prev);
+      if (isSelected) {
+        newSet.add(id);
+      } else {
+        newSet.delete(id);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSelectAllVisible = (checked) => {
+    if (checked) {
+      const allVisibleIds = filteredEquipment
+        .filter(item => item.status === 'available')
+        .map(item => item.id);
+      setSelectedEquipmentIds(new Set([...selectedEquipmentIds, ...allVisibleIds]));
+    } else {
+      const visibleIdsSet = new Set(filteredEquipment.map(item => item.id));
+      setSelectedEquipmentIds(prev => {
+        const newSet = new Set(prev);
+        newSet.forEach(id => {
+          if (visibleIdsSet.has(id)) {
+            newSet.delete(id);
+          }
+        });
+        return newSet;
+      });
+    }
+  };
+
+  const handleBorrowRequest = () => {
+    if (!user) {
+      User.login();
+      return;
+    }
+    setShowBorrowDialog(true);
+  };
+
+  const handleSubmitBorrowRequest = async (expectedReturnDate) => {
+    if (selectedEquipmentIds.size === 0) return;
+
+    try {
+      const requests = Array.from(selectedEquipmentIds).map(id => ({
+        equipment_id: id,
+        borrower_email: user.email,
+        borrower_name: user.full_name,
+        expected_return_date: expectedReturnDate,
+      }));
+      
+      await BorrowRequest.bulkCreate(requests);
+      
+      setShowBorrowDialog(false);
+      setSelectedEquipmentIds(new Set());
+      await loadData();
+    } catch (error) {
+      console.error("Error creating borrow requests:", error);
+    }
+  };
+
+  const availableCount = equipment.filter(item => item.status === 'available').length;
+  const totalCount = equipment.length;
+  const selectedCount = selectedEquipmentIds.size;
+  const selectedEquipmentList = equipment.filter(item => selectedEquipmentIds.has(item.id));
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
+      <div className="max-w-7xl mx-auto">
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-slate-900 to-blue-700 bg-clip-text text-transparent mb-3">
+            Equipment Catalog
+          </h1>
+          <p className="text-slate-600 text-lg">
+            Browse and request equipment for your projects
+          </p>
+          <div className="flex items-center gap-4 mt-4 text-sm">
+            <div className="px-3 py-1 bg-green-100 text-green-800 rounded-full font-medium">
+              {availableCount} Available
+            </div>
+            <div className="px-3 py-1 bg-slate-100 text-slate-700 rounded-full font-medium">
+              {totalCount} Total Items
+            </div>
+          </div>
+        </div>
+
+        {/* Filters */}
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-sm border border-slate-200/60 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="relative lg:col-span-2">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Input
+                placeholder="Search by name, model, code..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 border-slate-200 focus:border-blue-400 focus:ring-blue-400"
+              />
+            </div>
+            
+            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <SelectTrigger className="border-slate-200 focus:border-blue-400 focus:ring-blue-400">
+                <Filter className="w-4 h-4 mr-2" />
+                <SelectValue placeholder="Category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Categories</SelectItem>
+                <SelectItem value="monitors">Monitors</SelectItem>
+                <SelectItem value="laptops">Laptops</SelectItem>
+                <SelectItem value="tablets">Tablets</SelectItem>
+                <SelectItem value="cameras">Cameras</SelectItem>
+                <SelectItem value="audio">Audio Equipment</SelectItem>
+                <SelectItem value="accessories">Accessories</SelectItem>
+                <SelectItem value="other">Other</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="border-slate-200 focus:border-blue-400 focus:ring-blue-400">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="available">Available</SelectItem>
+                <SelectItem value="borrowed">Borrowed</SelectItem>
+                <SelectItem value="maintenance">Maintenance</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center space-x-2 mt-4">
+            <Checkbox
+              id="select-all"
+              onCheckedChange={handleSelectAllVisible}
+            />
+            <label
+              htmlFor="select-all"
+              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+            >
+              Select all available items on this page
+            </label>
+          </div>
+        </div>
+
+        {/* Equipment Grid */}
+        {isLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {Array(8).fill(0).map((_, i) => (
+              <div key={i} className="bg-white rounded-2xl p-6 animate-pulse">
+                <div className="h-6 bg-slate-200 rounded mb-3"></div>
+                <div className="h-4 bg-slate-200 rounded mb-2"></div>
+                <div className="h-32 bg-slate-200 rounded mb-4"></div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <AnimatePresence>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-24">
+              {filteredEquipment.map((item, index) => (
+                <motion.div
+                  key={item.id}
+                  layout
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ delay: index * 0.05 }}
+                >
+                  <EquipmentCard
+                    equipment={item}
+                    onSelectionChange={handleSelectionChange}
+                    isSelected={selectedEquipmentIds.has(item.id)}
+                  />
+                </motion.div>
+              ))}
+            </div>
+          </AnimatePresence>
+        )}
+
+        {filteredEquipment.length === 0 && !isLoading && (
+          <div className="text-center py-12">
+            <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Search className="w-12 h-12 text-slate-400" />
+            </div>
+            <h3 className="text-xl font-semibold text-slate-900 mb-2">No equipment found</h3>
+            <p className="text-slate-600">Try adjusting your search or filters</p>
+          </div>
+        )}
+
+        <AnimatePresence>
+          {selectedCount > 0 && (
+            <motion.div
+              initial={{ y: 100, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 100, opacity: 0 }}
+              className="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-lg z-50"
+            >
+              <div className="bg-white/90 backdrop-blur-xl rounded-2xl shadow-2xl p-4 border border-slate-200/80 mx-4 flex items-center justify-between">
+                <p className="font-medium text-slate-800">
+                  {selectedCount} item(s) selected
+                </p>
+                <Button 
+                  onClick={handleBorrowRequest}
+                  className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg shadow-blue-500/30"
+                >
+                  <HandPlatter className="w-4 h-4 mr-2" />
+                  Borrow Selected
+                </Button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <BorrowDialog
+          equipments={selectedEquipmentList}
+          isOpen={showBorrowDialog}
+          onClose={() => setShowBorrowDialog(false)}
+          onSubmit={handleSubmitBorrowRequest}
+          user={user}
+        />
+      </div>
+    </div>
+  );
+}
